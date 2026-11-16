@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { composer, heuristicRoute, researcher, router, verifier, type Intent, type Route } from "@/lib/agents/defs/assistant";
+import { composer, heuristicRoute, researcher, router, verifier, type Intent, type ProjectBrief, type Route } from "@/lib/agents/defs/assistant";
 import { codeStep, finishRun, runAgent, runTextAgent, runToolAgent, startRun, failRun, type RunContext, type RunEvent } from "@/lib/agents/runtime";
 import { visibleProjects } from "@/lib/auth/access";
 import { EvidenceBag, checkGrounding, loadPeople, loadProjectData, searchEvents, searchTickets, stripInvalidRefs, type ProjectData } from "@/lib/knowledge/evidence";
@@ -34,16 +34,19 @@ const OPEN_TICKET = new Set(["todo", "in_progress", "in_review", "blocked"]);
 const OPEN_INCIDENT = new Set(["detected", "triaging", "fix_proposed", "awaiting_approval", "escalated"]);
 
 /** Baseline retrieval: what a specialist would look at first for this kind of question. */
-function gather(bag: EvidenceBag, data: ProjectData, people: Map<string, Person>, route: Route, personIds: string[], now: Date): void {
+function gather(bag: EvidenceBag, data: ProjectData, people: Map<string, Person>, route: Route, personIds: string[], now: Date): ProjectBrief {
   const { project } = data;
   const snapshot = buildSnapshot(data, people, now);
+  const pace = snapshot.pace;
   const nextMilestone = project.milestones.filter((m) => m.status !== "done").sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
-  bag.addMetric(
+  const paceLine = `${pace.progressPct}% of scoped tickets are done with ${pace.timeElapsedPct}% of the schedule elapsed; pace is ${pace.status.replace("_", " ")}.`;
+  const metric = bag.addMetric(
     `status:${project.id}`,
     `${project.name} status`,
-    `${project.name} (client ${project.client}) health is ${snapshot.health}: ${snapshot.healthReasons.join("; ")}. Progress ${snapshot.pace.progressPct}% of scoped tickets done with ${snapshot.pace.timeElapsedPct}% of the schedule elapsed; pace is ${snapshot.pace.status.replace("_", " ")}. ${snapshot.pace.explanation} Open tickets ${snapshot.pace.openTickets}, blocked ${snapshot.pace.blockedTickets}. Target date ${isoDate(project.targetDate)}.${nextMilestone ? ` Next milestone "${nextMilestone.name}" due ${isoDate(nextMilestone.dueDate)} (${nextMilestone.status.replace("_", " ")}).` : ""}`,
+    `${project.name} (client ${project.client}) health is ${snapshot.health}. Reasons: ${snapshot.healthReasons.join("; ")}. ${paceLine} ${pace.explanation} Open tickets ${pace.openTickets}, blocked ${pace.blockedTickets}. Target date ${isoDate(project.targetDate)}.${nextMilestone ? ` Next milestone "${nextMilestone.name}" due ${isoDate(nextMilestone.dueDate)} (${nextMilestone.status.replace("_", " ")}).` : ""}`,
     project.id,
   );
+  const brief: ProjectBrief = { projectId: project.id, name: project.name, health: snapshot.health, reasons: snapshot.healthReasons, paceLine, metricRef: metric.ref };
   const latestDeploys = data.deployments.filter((d, i, all) => all.findIndex((x) => x.environment === d.environment) === i);
   const intent = route.intent;
   const wide = intent === "status" || intent === "risk" || intent === "compare" || intent === "other";
@@ -97,6 +100,7 @@ function gather(bag: EvidenceBag, data: ProjectData, people: Map<string, Person>
     searchTickets(data.tickets, route.searchQuery, 3).forEach((t) => bag.addTicket(t));
   }
   data.notes.slice(0, 3).forEach((n) => bag.addNote(n));
+  return brief;
 }
 
 /** Read-only lookups a researcher may call. Results are added to the shared evidence bag. */
@@ -237,6 +241,7 @@ export async function askAssistant(args: AskArgs): Promise<AskResult> {
       .map((person) => person.id);
 
     const bag = new EvidenceBag(people);
+    const briefs: ProjectBrief[] = [];
     const datasets = await codeStep(
       ctx,
       "retrieve",
@@ -244,7 +249,7 @@ export async function askAssistant(args: AskArgs): Promise<AskResult> {
       `${targets.map((p) => p.key).join(", ") || "no projects"} · ${route.intent} · last ${route.timeframeDays}d`,
       async () => {
         const loaded = await Promise.all(targets.map((project) => loadProjectData(project, args.actor)));
-        loaded.forEach((data) => gather(bag, data, people, route, personIds, now));
+        briefs.push(...loaded.map((data) => gather(bag, data, people, route, personIds, now)));
         return loaded;
       },
       () => `${bag.size} records from ${targets.length} project${targets.length === 1 ? "" : "s"}`,
@@ -280,7 +285,7 @@ export async function askAssistant(args: AskArgs): Promise<AskResult> {
     const draft = await runTextAgent(
       ctx,
       composer,
-      { question, directorName: args.actor.name, today: now.toISOString().slice(0, 10), intent: route.intent, findings, evidenceBlock: bag.render("evidence"), evidence: bag.list(), history, offered },
+      { briefs, question, directorName: args.actor.name, today: now.toISOString().slice(0, 10), intent: route.intent, findings, evidenceBlock: bag.render("evidence"), evidence: bag.list(), history, offered },
       { stream: true },
     );
     const answer = stripInvalidRefs(draft, bag).trim();

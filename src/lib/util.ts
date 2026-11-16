@@ -8,7 +8,7 @@ export function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
-export { isoDate, truncate, relativeTime, formatDate, formatDateTime } from "./format";
+export { isoDate, truncate, relativeTime, formatDate, formatDateTime, shortDate } from "./format";
 
 export function nowIso(): string {
   return new Date().toISOString();

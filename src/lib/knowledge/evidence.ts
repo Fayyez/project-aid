@@ -316,21 +316,44 @@ export function extractRefs(text: string): string[] {
   return refs;
 }
 
-function claimSentences(text: string): string[] {
-  return text
+interface Claim {
+  text: string;
+  /** References that support this claim. */
+  refs: string[];
+}
+
+/**
+ * Splits a text into factual claims. A bullet is one claim, cited as a unit.
+ * In prose each sentence is a claim; a reference may trail by one sentence
+ * ("Helix is at risk. Throughput fell 31% [M1].").
+ */
+function claims(text: string): Claim[] {
+  const out: Claim[] = [];
+  const lines = text
     .replace(/```[\s\S]*?```/g, " ")
     .split(/\n+/)
     .map((line) => line.trim())
-    // Headings, table rules and short connective lines carry no factual claim.
-    .filter((line) => line && !/^#{1,6}\s/.test(line) && !/^[|\-:\s]+$/.test(line))
-    .flatMap((line) => line.split(/(?<=[.!?])\s+(?=[A-Z0-9*_])/))
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => tokenize(sentence.replace(REF_GROUP, "")).length >= 4);
+    // Headings and table rules carry no factual claim.
+    .filter((line) => line && !/^#{1,6}\s/.test(line) && !/^[|\-:\s]+$/.test(line));
+  for (const line of lines) {
+    const substantial = (value: string) => tokenize(value.replace(REF_GROUP, "")).length >= 4;
+    if (/^([-*+]|\d+[.)])\s/.test(line) || line.startsWith("|")) {
+      if (substantial(line)) out.push({ text: line, refs: extractRefs(line) });
+      continue;
+    }
+    const sentences = line.split(/(?<=[.!?:])\s+(?=[A-Z0-9*_"'(])/).map((sentence) => sentence.trim()).filter(Boolean);
+    sentences.forEach((sentence, index) => {
+      if (!substantial(sentence)) return;
+      const own = extractRefs(sentence);
+      out.push({ text: sentence, refs: own.length ? own : extractRefs(sentences[index + 1] ?? "") });
+    });
+  }
+  return out;
 }
 
 /**
  * Deterministic grounding check: which references are real, and what share of
- * the factual sentences carry at least one real reference.
+ * the factual claims rest on at least one real reference.
  */
 export function checkGrounding(text: string, bag: EvidenceBag): GroundingResult {
   const used = extractRefs(text);
@@ -339,17 +362,15 @@ export function checkGrounding(text: string, bag: EvidenceBag): GroundingResult 
   if (bag.size === 0) {
     return { score: 0, citedRefs, invalidRefs, unsupported: [], verdict: "no_evidence" };
   }
-  const sentences = claimSentences(text);
   const hedges = /\b(i (could not|couldn't|don't|do not) (find|have|see)|no (record|evidence|data)|not (enough|recorded)|unknown|unclear|you (may|might|could) want to|would you like|i can|suggest|recommend)\b/i;
   const unsupported: string[] = [];
   let supported = 0;
   let counted = 0;
-  for (const sentence of sentences) {
-    if (hedges.test(sentence)) continue;
+  for (const claim of claims(text)) {
+    if (hedges.test(claim.text)) continue;
     counted += 1;
-    const refs = extractRefs(sentence);
-    if (refs.some((ref) => bag.get(ref))) supported += 1;
-    else unsupported.push(truncate(sentence.replace(REF_GROUP, "").trim(), 160));
+    if (claim.refs.some((ref) => bag.get(ref))) supported += 1;
+    else unsupported.push(truncate(claim.text.replace(REF_GROUP, "").replace(/^([-*+]|\d+[.)])\s+/, "").trim(), 160));
   }
   const score = counted === 0 ? 1 : supported / counted;
   const verdict: GroundingResult["verdict"] = invalidRefs.length === 0 && score >= 0.75 ? "grounded" : score >= 0.4 ? "partially_grounded" : "ungrounded";

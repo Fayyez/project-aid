@@ -63,7 +63,7 @@ export class MemoryStore implements Store {
     if (!this.file) return;
     try {
       const snapshot: Snapshot = { meta: Object.fromEntries(this.meta), collections: {} };
-      for (const name of COLLECTION_NAMES) snapshot.collections[name] = Array.from(this.data[name].values());
+      for (const name of COLLECTION_NAMES) snapshot.collections[name] = Array.from((this.data[name] as Map<string, unknown>).values());
       fs.mkdirSync(path.dirname(this.file), { recursive: true });
       const tmp = `${this.file}.tmp`;
       fs.writeFileSync(tmp, JSON.stringify(snapshot));

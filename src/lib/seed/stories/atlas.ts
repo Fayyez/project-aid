@@ -29,8 +29,8 @@ export const ATLAS: StorySpec = {
   buckets: [7, 7, 7, 7, 6, 7, 8, 7],
   histBase: 101,
   histMs: [3, 3, 3, 1, 1, 0, 0, 0],
-  reviewProb: 0.2,
-  secondCommitProb: 0.15,
+  reviewProb: 0.15,
+  secondCommitProb: 0.05,
   prBase: 188,
   histNouns: [
     { a: "catalog", noun: "product listing pagination" },

@@ -1,13 +1,18 @@
 import { summarizer } from "@/lib/agents/defs/summarizer";
 import { codeStep, runAgent, withRun, type RunEvent } from "@/lib/agents/runtime";
-import { getConnector, getDeployMonitor, makeConnectorContext } from "@/lib/connectors";
+import { getConnector, getDeployMonitor, makeConnectorContext, registerConnector, registerDeployMonitor } from "@/lib/connectors";
 import type { RawItem } from "@/lib/connectors/types";
 import { pickProvider } from "@/lib/llm";
 import { audit } from "@/lib/security/audit";
 import { looksLikeInjection, redactSecrets } from "@/lib/security/redact";
+import { simulatedConnector, simulatedDeployMonitor } from "@/lib/seed/simulator";
 import { getStore } from "@/lib/store";
 import type { Actor, AgentRun, Deployment, Incident, Person, Project, ProjectEvent, RunTrigger, SourceConfig, Thread } from "@/lib/types";
 import { DAY, mapLimit, newId, nowIso, truncate, uniq } from "@/lib/util";
+
+// The demo connector lives with the seed data; register it alongside the real ones.
+registerConnector(simulatedConnector);
+registerDeployMonitor(simulatedDeployMonitor);
 
 export interface IngestResult {
   events: ProjectEvent[];
@@ -177,11 +182,13 @@ export async function ingestItems(args: IngestArgs): Promise<IngestResult> {
   const clarifications: Thread[] = [];
   if (!args.skipFollowUps) {
     if (project.features.deployMonitoring && project.features.incidentTriage) {
-      const { openIncidentFromDeployment } = await import("./incident");
+      const { openIncidentFromDeployment, noteRecovery } = await import("./incident");
       for (const deployment of result.deployments) {
         if ((deployment.status === "failed" || deployment.status === "degraded") && /prod/i.test(deployment.environment)) {
           const incident = await openIncidentFromDeployment({ project, deployment, actor, trigger: args.trigger, onEvent: args.onEvent });
           if (incident) incidents.push(incident);
+        } else if (deployment.status === "success") {
+          await noteRecovery(project, deployment);
         }
       }
     }

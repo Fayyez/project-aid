@@ -107,14 +107,17 @@ export class AnthropicProvider implements LlmProvider {
       ...(Object.keys(outputConfig).length ? { output_config: outputConfig } : {}),
     };
     try {
-      const stream = supportsFallback(model)
-        ? this.api.beta.messages.stream({ ...base, betas: [FALLBACK_BETA], fallbacks: "default" })
-        : this.api.messages.stream(base);
-      if (request.onDelta) stream.on("text", (delta: string) => request.onDelta?.(delta));
-      const message = await stream.finalMessage();
+      // The two stream types differ only in their beta block variants; read both the same way.
+      const collect = async (stream: { on(event: "text", listener: (delta: string) => void): unknown; finalMessage(): Promise<{ stop_reason: string | null; model: string; content: { type: string; text?: string }[]; usage: Anthropic.Usage }> }) => {
+        if (request.onDelta) stream.on("text", (delta) => request.onDelta?.(delta));
+        return stream.finalMessage();
+      };
+      const message = supportsFallback(model)
+        ? await collect(this.api.beta.messages.stream({ ...base, betas: [FALLBACK_BETA], fallbacks: "default" }))
+        : await collect(this.api.messages.stream(base));
       checkStop(message.stop_reason);
       const text = message.content
-        .map((block) => (block.type === "text" ? block.text : ""))
+        .map((block) => (block.type === "text" ? (block.text ?? "") : ""))
         .join("")
         .trim();
       if (!text) throw new LlmError("The model returned an empty answer.", "invalid_output");

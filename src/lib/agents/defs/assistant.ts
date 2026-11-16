@@ -3,7 +3,7 @@ import { defineAgent, defineTextAgent, defineToolAgent } from "@/lib/agents/runt
 import type { ToolSpec } from "@/lib/llm";
 import { wrapUntrusted } from "@/lib/security/redact";
 import type { Evidence } from "@/lib/types";
-import { isoDate, tokenize, truncate, uniq } from "@/lib/util";
+import { isoDate, shortDate, tokenize, truncate, uniq } from "@/lib/util";
 
 // ---------------------------------------------------------------------------
 // Router: decides which projects, which angle and which follow-up action
@@ -162,7 +162,19 @@ Start from the evidence provided. Use the tools only when something needed to an
 // Composer: writes the answer the director reads
 // ---------------------------------------------------------------------------
 
+/** Rule-computed status of one project, handed to the writer as fixed facts. */
+export interface ProjectBrief {
+  projectId: string;
+  name: string;
+  health: "green" | "amber" | "red";
+  reasons: string[];
+  paceLine: string;
+  /** Reference of the metric evidence these facts come from. */
+  metricRef: string;
+}
+
 export interface ComposerInput {
+  briefs: ProjectBrief[];
   question: string;
   directorName: string;
   today: string;
@@ -199,6 +211,7 @@ How to answer:
       `Today is ${input.today}. You are answering ${input.directorName}.`,
       input.history.length ? `Conversation so far:\n${input.history.slice(-6).map((m) => `${m.role}: ${truncate(m.content, 400)}`).join("\n")}` : "",
       wrapUntrusted("question", input.question, 4000),
+      input.briefs.length ? `Rule-computed status (these are facts; cite the reference given):\n${input.briefs.map((b) => `- ${b.name}: health ${b.health}. ${b.paceLine} Reasons: ${b.reasons.join("; ")} [${b.metricRef}]`).join("\n")}` : "",
       `Findings from the project specialists:\n${input.findings.map((f) => `## ${f.projectName}\n${f.text}`).join("\n\n")}`,
       input.evidenceBlock,
       input.offered.length ? `Alongside your answer the director will be offered these one-click actions, so you may refer to them briefly but must not claim they have happened: ${input.offered.join("; ")}.` : "",
@@ -206,36 +219,76 @@ How to answer:
       .filter(Boolean)
       .join("\n\n");
   },
-  fallback(input) {
-    if (input.evidence.length === 0) {
-      return "I could not find anything in the project records that answers this. You may want to ask the team directly.";
-    }
-    const byProject = new Map<string, Evidence[]>();
-    for (const item of input.evidence) {
-      const key = item.projectId ?? "portfolio";
-      byProject.set(key, [...(byProject.get(key) ?? []), item]);
-    }
-    const sections: string[] = [];
-    const names = input.findings.map((f) => f.projectName);
-    let index = 0;
-    for (const [, items] of byProject) {
-      const name = names[index++] ?? "Portfolio";
-      const metric = items.find((item) => item.type === "metric");
-      const incidents = items.filter((item) => item.type === "incident").slice(0, 2);
-      const deploys = items.filter((item) => item.type === "deployment").slice(0, 2);
-      const events = items.filter((item) => item.type === "event").slice(0, input.intent === "activity" || input.intent === "people" ? 6 : 4);
-      const tickets = items.filter((item) => item.type === "ticket").slice(0, input.intent === "tickets" ? 6 : 3);
-      const others = items.filter((item) => ["thread", "note", "digest"].includes(item.type)).slice(0, 2);
-      const lines: string[] = [];
-      if (metric) lines.push(`${truncate(metric.text, 320)} [${metric.ref}]`);
-      const bullet = (item: Evidence) => `- ${item.occurredAt ? `${isoDate(item.occurredAt)}: ` : ""}${truncate(item.text, 200)} [${item.ref}]`;
-      const ordered = input.intent === "tickets" ? [...tickets, ...incidents, ...events, ...deploys] : input.intent === "deployment" || input.intent === "incident" ? [...incidents, ...deploys, ...events, ...tickets] : [...incidents, ...events, ...deploys, ...tickets];
-      lines.push(...ordered.map(bullet), ...others.map(bullet));
-      sections.push(byProject.size > 1 ? `**${name}**\n\n${lines.join("\n")}` : lines.join("\n"));
-    }
-    return sections.join("\n\n");
-  },
+  fallback: composeFromEvidence,
 });
+
+/** Splits an evidence line back into its title and the first sentence of its summary. */
+function evidenceBullet(item: Evidence): string {
+  const when = item.occurredAt ? `${shortDate(item.occurredAt)}: ` : "";
+  if (item.type === "ticket" || item.type === "deployment" || item.type === "incident") {
+    if (item.type === "ticket") {
+      const meta = /\((\w+), (P\d), status (\w+)(?:, assigned to ([^,)]+)|, unassigned)?/.exec(item.text);
+      const facts = meta ? ` (${meta[3].replace("_", " ")}, ${meta[2]}, ${meta[4] ?? "unassigned"})` : "";
+      return `- **${truncate(item.title, 110)}**${facts} [${item.ref}]`;
+    }
+    return `- ${when}${truncate(item.title, 170)} [${item.ref}]`;
+  }
+  const marker = `${item.title}. `;
+  const rest = item.text.includes(marker) ? item.text.slice(item.text.indexOf(marker) + marker.length).replace(/\s*\((type|areas|refs|intent unclear)[^)]*\)\s*$/, "") : "";
+  const detail = rest ? truncate(rest.split(/(?<=[.!?])\s/)[0], 170) : "";
+  const who = item.actorName && !detail.includes(item.actorName) ? ` (${item.actorName})` : "";
+  return `- ${when}**${truncate(item.title, 110)}**${who}${detail ? `. ${detail}` : ""} [${item.ref}]`;
+}
+
+/**
+ * Deterministic answer used when no model is available: a short status line
+ * per project from the rule-computed brief, then the most relevant records,
+ * every line carrying its reference.
+ */
+export function composeFromEvidence(input: ComposerInput): string {
+  if (input.evidence.length === 0) {
+    return "I could not find anything in the project records that answers this. You may want to ask the team directly.";
+  }
+  const rank = { red: 0, amber: 1, green: 2 };
+  const briefs = [...input.briefs].sort((a, b) => rank[a.health] - rank[b.health]);
+  const many = briefs.length > 1;
+  const label = { red: "needs attention now", amber: "is at risk", green: "is on track" };
+  const sections: string[] = [];
+  if (many) {
+    const needing = briefs.filter((brief) => brief.health !== "green");
+    sections.push(needing.length ? `${needing.length} of ${briefs.length} projects ${needing.length === 1 ? "needs" : "need"} your attention: ${needing.map((brief) => `**${brief.name}** [${brief.metricRef}]`).join(", ")}.` : `All ${briefs.length} projects are on track ${briefs.map((brief) => `[${brief.metricRef}]`).join("")}.`);
+  }
+  for (const brief of briefs) {
+    const items = input.evidence.filter((item) => item.projectId === brief.projectId);
+    const pick = (type: Evidence["type"], count: number) => items.filter((item) => item.type === type).slice(0, count);
+    const lines: string[] = [];
+    const statusLed = ["status", "risk", "compare", "other"].includes(input.intent);
+    if (statusLed || many) {
+      lines.push(`**${brief.name}** ${label[brief.health]}. ${brief.paceLine} [${brief.metricRef}]`);
+      if (brief.health !== "green") lines.push(...brief.reasons.slice(0, 4).map((reason) => `- ${reason} [${brief.metricRef}]`));
+    } else if (many) {
+      lines.push(`**${brief.name}**`);
+    }
+    // Quiet projects get one line in a portfolio answer; the detail goes to the ones that need it.
+    const compact = many && brief.health === "green" && statusLed;
+    if (!compact) {
+      const people = items.filter((item) => item.type === "metric" && item.id.startsWith("contrib:")).slice(0, 4);
+      const order: [Evidence["type"], number][] =
+        input.intent === "tickets"
+          ? [["ticket", 7], ["incident", 2], ["event", 3]]
+          : input.intent === "deployment" || input.intent === "incident"
+            ? [["incident", 3], ["deployment", 4], ["event", 4], ["ticket", 2]]
+            : input.intent === "activity" || input.intent === "people"
+              ? [["event", 7], ["ticket", 4], ["deployment", 1]]
+              : [["incident", 2], ["event", 4], ["ticket", 4], ["deployment", 2], ["thread", 2]];
+      const detail = [...people.map((item) => `- ${truncate(item.text, 260)} [${item.ref}]`), ...order.flatMap(([type, count]) => pick(type, count)).map(evidenceBullet)];
+      const notes = pick("note", 1).map((item) => `- Your note: ${truncate(item.text.replace(/^Director's own note:\s*/, ""), 180)} [${item.ref}]`);
+      if (detail.length || notes.length) lines.push(statusLed && lines.length ? "" : "", ...detail, ...notes);
+    }
+    sections.push(lines.filter((line, index, all) => !(line === "" && (index === 0 || all[index - 1] === ""))).join("\n"));
+  }
+  return sections.join("\n\n").trim();
+}
 
 // ---------------------------------------------------------------------------
 // Verifier: an independent check that the answer says only what the record says

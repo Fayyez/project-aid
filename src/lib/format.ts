@@ -34,3 +34,12 @@ export function formatDateTime(iso: string | undefined): string {
   if (!iso) return "-";
   return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "UTC" }) + " UTC";
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "15 Nov" (UTC, locale independent). */
+export function shortDate(iso: string | undefined): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? "" : `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
+}
