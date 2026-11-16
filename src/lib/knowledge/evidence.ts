@@ -336,7 +336,8 @@ function claims(text: string): Claim[] {
     // Headings and table rules carry no factual claim.
     .filter((line) => line && !/^#{1,6}\s/.test(line) && !/^[|\-:\s]+$/.test(line));
   for (const line of lines) {
-    const substantial = (value: string) => tokenize(value.replace(REF_GROUP, "")).length >= 4;
+    // Four words or more: shorter fragments are labels or connectives, not claims.
+    const substantial = (value: string) => (value.replace(REF_GROUP, "").match(/[A-Za-z0-9][\w'%.-]*/g) ?? []).length >= 4;
     if (/^([-*+]|\d+[.)])\s/.test(line) || line.startsWith("|")) {
       if (substantial(line)) out.push({ text: line, refs: extractRefs(line) });
       continue;
