@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Fragment, useState } from "react";
 import { Select, Table, TBody, Td, Th, THead, Tr, toast } from "@/components/ui";
-import { PriorityBadge, TicketStatusBadge } from "@/components/domain";
+import { PriorityBadge } from "@/components/domain";
 import { updateTicketAction } from "@/app/actions";
 import { formatDate } from "@/lib/format";
 import type { Ticket, TicketStatus } from "@/lib/types";
@@ -118,8 +118,7 @@ export function TicketsTable({ projectId, tickets, team, overdueIds }: { project
                   <PriorityBadge priority={t.priority} />
                 </Td>
                 <Td className="min-w-40">
-                  <div className="flex flex-col items-start gap-1">
-                    <TicketStatusBadge status={status} />
+                  <div>
                     <Select aria-label={`Status of ${t.key}`} value={status} disabled={busy} onChange={(e) => change(t, { status: e.target.value as TicketStatus }, `Status is now ${STATUSES.find((s) => s.value === e.target.value)?.label}`)} className="h-7 w-36 py-0 text-[13px]">
                       {STATUSES.map((s) => (
                         <option key={s.value} value={s.value}>

@@ -14,7 +14,12 @@ interface Owner {
 }
 
 /** Ask a team member a question. Suggests who to ask based on recent work. */
-export function EscalateDialog({ projectId, open, onClose, defaultQuestion, onSent }: EscalateDialogProps) {
+export function EscalateDialog(props: EscalateDialogProps) {
+  // The form state lives in a child that only exists while the dialog is open, so it starts fresh each time.
+  return props.open ? <EscalateForm {...props} /> : null;
+}
+
+function EscalateForm({ projectId, open, onClose, defaultQuestion, onSent }: EscalateDialogProps) {
   const [question, setQuestion] = useState(defaultQuestion ?? "");
   const [owners, setOwners] = useState<Owner[]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,28 +30,14 @@ export function EscalateDialog({ projectId, open, onClose, defaultQuestion, onSe
   const touched = useRef(false);
   const seq = useRef(0);
 
-  // Re-seed the question each time the dialog opens.
-  useEffect(() => {
-    if (open) {
-      setQuestion(defaultQuestion ?? "");
-      setChosen(undefined);
-      setError(undefined);
-      setSentId(undefined);
-      touched.current = false;
-    }
-  }, [open, defaultQuestion]);
-
   // Debounced owner suggestions.
   useEffect(() => {
     if (!open) return;
     const text = question.trim();
-    if (text.length < 8) {
-      setOwners([]);
-      return;
-    }
+    if (text.length < 8) return;
     const mine = ++seq.current;
-    setLoading(true);
     const timer = setTimeout(async () => {
+      setLoading(true);
       const result = await suggestOwnersAction(projectId, text);
       if (mine !== seq.current) return;
       setLoading(false);
@@ -57,6 +48,8 @@ export function EscalateDialog({ projectId, open, onClose, defaultQuestion, onSe
     }, 450);
     return () => clearTimeout(timer);
   }, [open, question, projectId]);
+
+  const visibleOwners = question.trim().length < 8 ? [] : owners;
 
   async function send() {
     setSending(true);
@@ -118,11 +111,11 @@ export function EscalateDialog({ projectId, open, onClose, defaultQuestion, onSe
             Who should answer?
             {loading ? <Spinner size={12} label="Finding the right person" /> : null}
           </legend>
-          {owners.length === 0 ? (
+          {visibleOwners.length === 0 ? (
             <p className="text-[13px] text-muted">{question.trim().length < 8 ? "Write your question to see who is best placed to answer." : loading ? "Looking for the best person..." : "No specific owner found. We will pick the project lead."}</p>
           ) : (
             <ul className="space-y-2">
-              {owners.map((o) => {
+              {visibleOwners.map((o) => {
                 const id = `owner-${o.personId}`;
                 const selected = chosen === o.personId;
                 return (

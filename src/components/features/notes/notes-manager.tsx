@@ -33,7 +33,7 @@ function NoteForm({ draft, onChange, idPrefix, disabled }: { draft: Draft; onCha
       <Field label="Note" required>
         <Textarea id={`${idPrefix}-body`} rows={5} value={draft.body} maxLength={8000} disabled={disabled} onChange={(event) => onChange({ ...draft, body: event.target.value })} placeholder="What do you want to remember about this project?" />
       </Field>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3">
         <Switch label="Pin" description="Pinned notes stay at the top of the list." checked={draft.pinned} disabled={disabled} onChange={(event) => onChange({ ...draft, pinned: event.target.checked })} />
         <Switch
           label="Let the assistant use this note"

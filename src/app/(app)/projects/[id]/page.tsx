@@ -34,7 +34,7 @@ export default async function ProjectOverviewPage({ params }: PageProps<"/projec
   const { project, snapshot, team, latestDigest, openIncidents, openThreads } = o;
   const { pace } = snapshot;
   const milestones = [...project.milestones].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  const weeks = pace.weeklyThroughput.map((value, i) => ({ label: i === pace.weeklyThroughput.length - 1 ? "This week" : `${pace.weeklyThroughput.length - 1 - i}w ago`, value }));
+  const weeks = pace.weeklyThroughput.map((value, i) => ({ label: i === pace.weeklyThroughput.length - 1 ? "Now" : `${pace.weeklyThroughput.length - 1 - i}w ago`, value }));
   const slip = Math.round(pace.slipDays);
 
   return (
@@ -304,7 +304,7 @@ export default async function ProjectOverviewPage({ params }: PageProps<"/projec
               <p className="text-[13px] text-muted">No one is assigned yet.</p>
             ) : (
               <div className="flex flex-wrap items-center gap-3">
-                <AvatarStack people={team} max={8} />
+                <AvatarStack people={team} max={8} size="md" />
                 <p className="min-w-0 text-[13px] text-muted">{team.map((m) => m.name).join(", ")}</p>
               </div>
             )}

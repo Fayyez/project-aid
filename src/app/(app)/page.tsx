@@ -52,39 +52,38 @@ export default async function PortfolioPage() {
           </div>
         </section>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <div className="min-w-0 xl:col-span-2">
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-3">
+          <div className="min-w-0 space-y-8 xl:col-span-2">
             <AttentionList items={view.attention} />
+            <section aria-labelledby="projects-title" className="space-y-3">
+              <h2 id="projects-title" className="text-sm font-semibold">
+                Your projects
+              </h2>
+              {projects.length === 0 ? (
+                <Card>
+                  <EmptyState
+                    title="No projects yet"
+                    description="Create your first project to start tracking health, pace and deployments."
+                    action={
+                      <LinkButton href="/projects/new" variant="primary">
+                        New project
+                      </LinkButton>
+                    }
+                  />
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {projects.map(({ project, snapshot, teamSize }) => (
+                    <ProjectCard key={project.id} project={project} snapshot={snapshot} teamSize={teamSize} />
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
           <div className="min-w-0">
             <LatestFeed events={view.recentEvents} />
           </div>
         </div>
-
-        <section aria-labelledby="projects-title" className="space-y-3">
-          <h2 id="projects-title" className="text-sm font-semibold">
-            Your projects
-          </h2>
-          {projects.length === 0 ? (
-            <Card>
-              <EmptyState
-                title="No projects yet"
-                description="Create your first project to start tracking health, pace and deployments."
-                action={
-                  <LinkButton href="/projects/new" variant="primary">
-                    New project
-                  </LinkButton>
-                }
-              />
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {projects.map(({ project, snapshot, teamSize }) => (
-                <ProjectCard key={project.id} project={project} snapshot={snapshot} teamSize={teamSize} />
-              ))}
-            </div>
-          )}
-        </section>
       </div>
     </>
   );

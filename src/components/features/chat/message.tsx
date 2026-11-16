@@ -38,7 +38,7 @@ export function AssistantMessage({ message, conversationId, projectId, onActionC
   const unsupported = message.grounding?.unsupported ?? [];
   const pid = projectId ?? citations.find((c) => c.projectId)?.projectId;
   return (
-    <li className="flex gap-2.5">
+    <li className="flex gap-2.5" data-message={message.id}>
       <span aria-hidden className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-bold text-accent">
         PA
       </span>

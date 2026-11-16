@@ -10,11 +10,12 @@ export const metadata: Metadata = { title: "Incidents" };
 export default async function ProjectIncidentsPage({ params }: PageProps<"/projects/[id]/incidents">) {
   const actor = await requireActor();
   const { id } = await params;
+  let incidents: Awaited<ReturnType<typeof listIncidents>>;
   try {
-    const incidents = await listIncidents(actor, id);
-    return <IncidentList incidents={incidents} showProject={false} />;
+    incidents = await listIncidents(actor, id);
   } catch (error) {
     if (error instanceof AccessError) notFound();
     throw error;
   }
+  return <IncidentList incidents={incidents} showProject={false} />;
 }

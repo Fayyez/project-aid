@@ -2,8 +2,9 @@ import { DemoReset } from "@/components/features/settings/demo-reset";
 import { PeopleManager } from "@/components/features/settings/people-manager";
 import { SetupStatusPanel } from "@/components/features/settings/setup-status";
 import { TokensManager } from "@/components/features/settings/tokens-manager";
-import { Badge, Card, CardBody, CardHeader, EmptyState, PageHeader, RelativeTime, Table, TBody, Td, Th, THead, Tabs, Tr } from "@/components/ui";
+import { Badge, Card, CardBody, CardHeader, EmptyState, PageHeader, Table, TBody, Td, Th, THead, Tabs, Tr } from "@/components/ui";
 import { requireActor } from "@/lib/auth/current";
+import { formatDateTime } from "@/lib/format";
 import { getSetupStatus, listAudit, listTokens } from "@/lib/services/admin";
 import { listPeople } from "@/lib/services/queries";
 import { listToolSummaries } from "@/lib/tools/registry";
@@ -58,7 +59,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/setting
                 {entries.map((entry) => (
                   <Tr key={entry.id}>
                     <Td className="whitespace-nowrap" muted>
-                      <RelativeTime iso={entry.at} />
+                      {formatDateTime(entry.at)}
                     </Td>
                     <Td className="whitespace-nowrap">{entry.actorName}</Td>
                     <Td>

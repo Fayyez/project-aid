@@ -100,6 +100,21 @@ async function saveRun(run: AgentRun): Promise<void> {
   }
 }
 
+const MAX_STORED_RUNS = 300;
+
+/** Keeps the trace collection bounded: the oldest runs beyond the cap are removed. */
+async function pruneRuns(): Promise<void> {
+  try {
+    const store = await getStore();
+    const runs = await store.list("runs");
+    if (runs.length <= MAX_STORED_RUNS) return;
+    const stale = runs.sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(MAX_STORED_RUNS);
+    await Promise.all(stale.map((run) => store.remove("runs", run.id)));
+  } catch {
+    /* housekeeping must never fail a run */
+  }
+}
+
 export async function loadLessons(projectId?: string): Promise<Lesson[]> {
   const store = await getStore();
   const lessons = await store.list("lessons");
@@ -154,6 +169,7 @@ export async function finishRun(ctx: RunContext, output: string, extra: { ground
   ctx.run.finishedAt = nowIso();
   if (extra.grounding) ctx.run.grounding = extra.grounding;
   await saveRun(ctx.run);
+  if (Math.random() < 0.05) await pruneRuns();
   ctx.emit({ type: "run_finished", run: ctx.run });
   return ctx.run;
 }

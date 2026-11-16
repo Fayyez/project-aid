@@ -11,6 +11,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Document parsers ship CommonJS with dynamic requires; keep them out of the bundle.
   serverExternalPackages: ["mammoth", "read-excel-file"],
+  // Document uploads (Word, Excel) go through a server action; the default limit is 1 MB.
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
   turbopack: {
     rules: {
       "*.css": {

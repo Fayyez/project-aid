@@ -49,14 +49,24 @@ export function ChatView({ userName, projectId, projectName, conversations, conv
   const abort = useRef<AbortController | null>(null);
   const autoSent = useRef(false);
   const idRef = useRef(conversationId);
-  idRef.current = conversationId;
 
   const suggestions = projectId ? PROJECT_SUGGESTIONS : PORTFOLIO_SUGGESTIONS;
 
+  const lastId = messages[messages.length - 1]?.id;
+  const lastRole = messages[messages.length - 1]?.role;
   useEffect(() => {
     const el = scroller.current;
-    if (el) el.scrollTo({ top: el.scrollHeight });
-  }, [messages.length, steps.length, streamText, error]);
+    if (!el) return;
+    // A finished answer is read from its first line; everything else follows the bottom.
+    if (!streaming && !error && lastRole === "assistant" && lastId) {
+      const target = el.querySelector<HTMLElement>(`[data-message="${CSS.escape(lastId)}"]`);
+      if (target) {
+        el.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 12) });
+        return;
+      }
+    }
+    el.scrollTo({ top: el.scrollHeight });
+  }, [lastId, lastRole, streaming, steps.length, streamText, error]);
 
   const send = useCallback(
     async (raw: string, options: { retry?: boolean } = {}) => {

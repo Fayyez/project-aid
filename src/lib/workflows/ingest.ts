@@ -131,7 +131,8 @@ export async function ingestItems(args: IngestArgs): Promise<IngestResult> {
           url: raw.url,
           title: truncate(summary.title, 120) || truncate(prepared.item.title, 120),
           summary: truncate(summary.summary, 600),
-          details: project.privacy.storeRawCode && prepared.item.diff ? truncate(prepared.item.diff, 8000) : undefined,
+          // Messages keep their (redacted) text so they can be turned into tickets later; code is kept only on request.
+          details: raw.kind === "message" && prepared.item.body ? prepared.item.body.slice(0, 4000) : project.privacy.storeRawCode && prepared.item.diff ? truncate(prepared.item.diff, 8000) : undefined,
           actorId: person?.id,
           actorName: person?.name ?? raw.actor?.name ?? raw.actor?.handle,
           occurredAt: raw.occurredAt,
