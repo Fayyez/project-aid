@@ -50,11 +50,14 @@ export function heuristicReflection(input: ReflectorInput): Reflection {
     if (item.rating !== "down" || !item.comment?.trim()) continue;
     const comment = generalise(truncate(item.comment, 200)).replace(/[.!?\s]+$/, "");
     if (!comment) continue;
-    const agent = item.agents.length ? item.agents[item.agents.length - 1] : "all";
+    // Criticism of an output is about the agent that wrote it, so prefer the writer over checkers that ran later.
+    const writers: Record<string, string> = { chat_message: "composer", report: "report-writer", digest: "digest-editor", ticket: "ticket-extractor", incident: "incident-triager", event: "summarizer" };
+    const writer = writers[item.targetType];
+    const agent = writer && (item.agents.length === 0 || item.agents.includes(writer)) ? writer : item.agents.length ? item.agents[item.agents.length - 1] : "all";
     lessons.push({
       agent,
       scope: "global",
-      text: `Take this director feedback into account: "${comment}".`,
+      text: `A director said about a ${item.targetType.replace("_", " ")}: "${comment}". Apply that to similar outputs.`,
       rationale: `A director gave negative feedback on a ${item.targetType.replace("_", " ")}.`,
       feedbackIds: [item.id],
     });
