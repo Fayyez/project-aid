@@ -11,7 +11,7 @@ A command center for project directors who run many software projects at once. P
 - **MCP server**: the whole platform is available as tools to Claude, Copilot Studio, IDEs or any MCP client. Teams and Slack entry points are included.
 - **Learning loop**: feedback becomes proposed guidance that you approve; pinned questions act as a regression suite.
 
-Product scope, workflows and integrations: [docs/PRODUCT.md](docs/PRODUCT.md). Architecture, agents, grounding and security: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Product scope, workflows and integrations: [docs/PRODUCT.md](docs/PRODUCT.md). Architecture, agents, grounding and security: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Cost per workflow and per month: [docs/COSTS.md](docs/COSTS.md).
 
 ## Run it locally
 
@@ -39,6 +39,29 @@ Set `ANTHROPIC_API_KEY` in `.env.local`, restart, then confirm the live model ca
 npm run check:llm
 ```
 
+### Use any model through LiteLLM
+
+To route every model call through a [LiteLLM](https://docs.litellm.ai) gateway instead of calling Anthropic directly, start a proxy with the example configuration and point the app at it:
+
+```bash
+pip install 'litellm[proxy]'
+```
+
+```bash
+litellm --config litellm.config.example.yaml --port 4000
+```
+
+Then set in `.env.local`:
+
+```bash
+LITELLM_BASE_URL=http://localhost:4000
+LITELLM_API_KEY=your-litellm-key
+LITELLM_SMART_MODEL=smart
+LITELLM_CHEAP_MODEL=cheap
+```
+
+The app asks only for the names `smart` and `cheap` (and `local` for private code, if you set `LITELLM_LOCAL_MODEL`). Which vendor and model answer to each name, with what budget and fallbacks, is decided in the LiteLLM configuration. `npm run check:llm` checks whichever route is configured.
+
 Other commands:
 
 ```bash
@@ -63,6 +86,7 @@ npm run build
    | `AUTH_SECRET` | Yes | Signs session cookies. Use a long random value. Without it nobody can sign in. |
    | `DEMO_PASSWORD` | Yes, for the demo | Password of the seeded demo accounts. |
    | `ANTHROPIC_API_KEY` | Recommended | Runs the agents on Claude. Without it the app runs in heuristic mode. |
+   | `LITELLM_BASE_URL`, `LITELLM_API_KEY` | Alternative | Routes every model call through your LiteLLM gateway instead (it must be reachable from Vercel). |
    | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Recommended | Durable storage. Add "Upstash for Redis" from the Vercel Marketplace; it sets `KV_REST_API_URL` and `KV_REST_API_TOKEN`, which are also accepted. |
    | `CRON_SECRET` | Optional | Enables the daily scheduled sync defined in `vercel.json`. |
 
@@ -133,8 +157,9 @@ These were decided without you. Each is cheap to change.
 | Topic | What was assumed or stubbed | To change it |
 |---|---|---|
 | Deployment | Not deployed: that needs your Vercel account. | Follow "Deploy to Vercel" above. |
-| Live model calls | Written against the current Anthropic SDK and type-checked, but never run with a real key (none was available). Every call falls back to rules on failure, and the trace shows the error. | Run `npm run check:llm` with your key first. |
-| Models | `claude-opus-5-5` for reasoning, `claude-haiku-5-5` for summarising. | `SMART_MODEL`, `CHEAP_MODEL`. |
+| Live model calls | The direct Anthropic route is tested against a stubbed API only (no key was available). The LiteLLM route was run against a real LiteLLM proxy with a stand-in model, not a real vendor. Every call falls back to rules on failure, and the trace shows the error. | Run `npm run check:llm` with your key first. |
+| Models | `claude-opus-5-5` for reasoning, `claude-haiku-5-5` for summarising, called directly. | `SMART_MODEL`, `CHEAP_MODEL`, or put any vendor behind a LiteLLM gateway with `LITELLM_BASE_URL`. |
+| Orchestration | An in-house agent runtime with workflows in code; no agent framework. | `src/lib/agents/runtime.ts`. |
 | Connectors | GitHub, Azure DevOps / TFS, Jira, Teams, Outlook, Slack, Vercel and health checks are implemented and tested against recorded responses, not against live accounts. | Add credentials and click Sync; the source's status and error detail show in project settings. |
 | Teams | Reading channel messages needs a Microsoft Graph token from an Entra app registration, which needs your tenant admin. Delivery to Teams uses an incoming webhook. Directors can @mention the assistant through an outgoing webhook. A full bot with proactive messages is on the roadmap. | See "Use it from an AI client". |
 | Email | Questions to the team can be emailed through Resend. Outlook is supported as a read source. | `RESEND_API_KEY`, `EMAIL_FROM`. |

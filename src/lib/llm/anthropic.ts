@@ -3,17 +3,8 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { betaZodOutputFormat, betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { config } from "@/lib/config";
 import type { Tier, Usage } from "@/lib/types";
+import { usageFor } from "./pricing";
 import { LlmError, type CallMeta, type Effort, type JsonRequest, type LlmProvider, type TextRequest, type ToolLoopRequest } from "./types";
-
-/** USD per million tokens (input, output). Used only for the cost estimate shown in run traces. */
-const PRICES: [prefix: string, input: number, output: number][] = [
-  ["claude-fable-5-2", 8, 40],
-  ["claude-opus-5-5", 4, 20],
-  ["claude-opus-5", 5, 25],
-  ["claude-sonnet-5", 2, 10],
-  ["claude-haiku-5-5", 0.1, 0.5],
-  ["claude-haiku-4-5", 1, 5],
-];
 
 /** Models that accept the server-side refusal fallback. */
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
@@ -22,11 +13,7 @@ const supportsFallback = (model: string) => /^claude-(opus-5|sonnet-5-5|fable-5)
 const supportsEffort = (model: string) => !/^claude-(haiku-4|sonnet-4-5|opus-4-[01])/.test(model);
 
 function usageOf(model: string, usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }): Usage {
-  const price = PRICES.find(([prefix]) => model.startsWith(prefix));
-  const inputTokens = usage.input_tokens + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0);
-  const outputTokens = usage.output_tokens;
-  const costUsd = price ? (inputTokens * price[1] + outputTokens * price[2]) / 1_000_000 : 0;
-  return { inputTokens, outputTokens, costUsd: Math.round(costUsd * 1e6) / 1e6 };
+  return usageFor(model, usage.input_tokens + (usage.cache_read_input_tokens ?? 0) + (usage.cache_creation_input_tokens ?? 0), usage.output_tokens);
 }
 
 function toLlmError(error: unknown): LlmError {

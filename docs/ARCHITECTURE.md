@@ -1,6 +1,8 @@
 # Architecture
 
-Project Aid is one Next.js application (App Router, TypeScript) that deploys to Vercel. The multi-agent orchestration is an in-house runtime of about 400 lines; there is no agent framework dependency.
+Project Aid is one Next.js application (App Router, TypeScript) that deploys to Vercel.
+
+**Orchestration harness.** The multi-agent orchestration is an in-house runtime (`src/lib/agents/runtime.ts`, about 400 lines) with workflows written as ordinary TypeScript. No agent framework is used: no LangChain, LangGraph, CrewAI, AutoGen or Claude Agent SDK. The reasons are control and auditability: routing, permissions, approval gates and escalation policy stay in code that can be tested, every step lands in a trace, and every agent has a deterministic fallback. Model access is a thin provider layer: the Anthropic SDK directly, or a LiteLLM gateway for every call.
 
 ```mermaid
 flowchart TB
@@ -105,13 +107,17 @@ Every workflow runs inside a traced run. Each step records the agent, tier, prov
 
 ### Model routing
 
-`src/lib/llm/index.ts` is the only place that decides which model a step uses:
+`src/lib/llm/index.ts` is the only place that decides where a model call goes. Agents ask for a tier (`smart` or `cheap`), never for a vendor.
 
-- Reasoning tier: `claude-opus-5-5` through the Anthropic SDK, with the server-side refusal fallback enabled.
-- Summarising tier: `claude-haiku-5-5`, or a local model when `CHEAP_PROVIDER=local`.
-- Steps that read source code follow the project's privacy mode: `cloud` uses the summarising model, `local` uses only the local model and falls back to rules if none is configured, `metadata-only` never calls a model.
+| Configuration | Where calls go |
+|---|---|
+| `LITELLM_BASE_URL` set | **Every** call goes through the LiteLLM gateway (OpenAI-compatible chat completions): structured output, streaming and tool loops. The `smart` and `cheap` tiers map to model names defined in your LiteLLM configuration, so any vendor LiteLLM supports can sit behind them, with its budgets, fallbacks and logging. |
+| `ANTHROPIC_API_KEY` set, no gateway | Direct to Anthropic through its SDK: `claude-opus-5-5` for reasoning (with the server-side refusal fallback), `claude-haiku-5-5` for summarising. |
+| Neither | Heuristic mode: every agent runs its deterministic fallback. |
 
-Structured output uses the SDK's schema-validated parsing; the answer writer streams.
+Steps that read source code also follow the project's privacy mode, whatever the gateway: `cloud` uses the summarising tier; `local` uses only a model on your own hardware (`LITELLM_LOCAL_MODEL` through the gateway, or `LOCAL_LLM_BASE_URL` directly) and falls back to rules if none is configured; `metadata-only` never calls a model.
+
+Through LiteLLM, structured output is requested as a strict JSON schema; if a model rejects that, the provider switches that model to JSON mode with the schema in the prompt, validates the reply and allows one repair attempt. The gateway's reported cost per call is recorded in the trace when it sends one.
 
 ## Grounding
 
@@ -164,4 +170,6 @@ Long workflows run inside the request that started them (up to five minutes on V
 - `tests/integration.test.ts`: the seeded portfolio end to end (assistant, incident, ingestion safety, learning loop, access control)
 - `tests/mcp.test.ts`: the MCP endpoint over real JSON-RPC requests
 
-`npm run check:llm` exercises the live model call shapes (structured output, streaming, tool loop) on both tiers.
+`npm run check:llm` exercises the live model call shapes (structured output, streaming, tool loop) on both tiers, through whichever route is configured. The LiteLLM route was run against a real LiteLLM proxy (version 1.109) with a stand-in upstream model; the direct Anthropic route has only been run against a stubbed API.
+
+Running costs per workflow are estimated in [COSTS.md](COSTS.md).

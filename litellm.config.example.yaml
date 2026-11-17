@@ -1,0 +1,50 @@
+# Example LiteLLM proxy configuration for Project Aid.
+#
+#   pip install 'litellm[proxy]'
+#   litellm --config litellm.config.example.yaml --port 4000
+#
+# Then point Project Aid at it:
+#   LITELLM_BASE_URL=http://localhost:4000
+#   LITELLM_API_KEY=<the master key below, or a virtual key>
+#   LITELLM_SMART_MODEL=smart
+#   LITELLM_CHEAP_MODEL=cheap
+#   LITELLM_LOCAL_MODEL=local        # optional: private code stays on your hardware
+#
+# Project Aid only ever asks for the names "smart", "cheap" and "local".
+# Which vendor and model answer to each name is decided here, so you can swap
+# models, add fallbacks and set budgets without changing the application.
+
+model_list:
+  # Reasoning tier: answers, triage, fix proposals, reports.
+  - model_name: smart
+    litellm_params:
+      model: anthropic/claude-opus-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # Summarising tier: reads long inputs such as diffs and messages.
+  - model_name: cheap
+    litellm_params:
+      model: anthropic/claude-haiku-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # Optional: a model on your own hardware for projects in "local" privacy mode.
+  - model_name: local
+    litellm_params:
+      model: ollama/qwen2.5-coder:7b
+      api_base: http://localhost:11434
+
+  # Other vendors work the same way, for example:
+  # - model_name: smart
+  #   litellm_params:
+  #     model: azure/<your-deployment>
+  #     api_base: os.environ/AZURE_API_BASE
+  #     api_key: os.environ/AZURE_API_KEY
+
+litellm_settings:
+  # Drop parameters a given vendor does not accept instead of failing the call.
+  drop_params: true
+  # Optional: fall back to another model when the first one fails.
+  # fallbacks: [{ "smart": ["cheap"] }]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY

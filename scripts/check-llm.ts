@@ -23,14 +23,15 @@ async function main() {
   const status = llmStatus();
   console.log(`Mode: ${status.label}. ${status.detail}\n`);
   if (status.mode === "heuristic") {
-    console.log("No model is configured, so there is nothing to check. Set ANTHROPIC_API_KEY (or LOCAL_LLM_BASE_URL) and run again.");
+    console.log("No model is configured, so there is nothing to check. Set ANTHROPIC_API_KEY, or LITELLM_BASE_URL for a LiteLLM gateway, and run again.");
     return;
   }
   let failures = 0;
   const check = async (label: string, fn: () => Promise<string>) => {
     const started = Date.now();
     try {
-      console.log(`ok    ${label} (${Date.now() - started}ms) -> ${await fn()}`);
+      const detail = await fn();
+      console.log(`ok    ${label} (${Date.now() - started}ms) -> ${detail}`);
     } catch (error) {
       failures += 1;
       console.log(`FAIL  ${label}: ${error instanceof Error ? error.message : String(error)}`);

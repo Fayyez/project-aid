@@ -32,9 +32,23 @@ export function getSetupStatus(): SetupStatus {
   const checks: SetupCheck[] = [
     { id: "auth", label: "Session signing secret", ok: Boolean(process.env.AUTH_SECRET), level: "required", env: "AUTH_SECRET", detail: process.env.AUTH_SECRET ? "Sessions are signed with your secret." : config.isProduction ? "Not set: nobody can sign in. Set a long random value." : "Not set: a development-only default is in use." },
     { id: "demo", label: "Demo account password", ok: Boolean(process.env.DEMO_PASSWORD), level: "required", env: "DEMO_PASSWORD", detail: process.env.DEMO_PASSWORD ? "Demo accounts use your password." : config.isProduction ? "Not set: the seeded demo accounts cannot sign in." : "Not set: the development default demo1234 is in use." },
-    { id: "llm", label: "Anthropic API key", ok: config.anthropicConfigured, level: "recommended", env: "ANTHROPIC_API_KEY", detail: config.anthropicConfigured ? `Agents reason on ${config.smartModel} and summarise on ${config.cheapModel}.` : "Not set: every agent runs on its deterministic fallback." },
+    config.litellmBaseUrl
+      ? { id: "llm", label: "LiteLLM gateway", ok: true, level: "recommended", env: "LITELLM_BASE_URL", detail: `Every model call goes through LiteLLM: reasoning on "${config.litellmSmartModel}", summarising on "${config.litellmCheapModel}"${config.litellmLocalModel ? `, private code on "${config.litellmLocalModel}"` : ""}.` }
+      : { id: "llm", label: "Model access", ok: config.anthropicConfigured, level: "recommended", env: "ANTHROPIC_API_KEY", detail: config.anthropicConfigured ? `Agents reason on ${config.smartModel} and summarise on ${config.cheapModel}, called directly.` : "Not set: every agent runs on its deterministic fallback. Set ANTHROPIC_API_KEY, or LITELLM_BASE_URL to use a LiteLLM gateway." },
     { id: "store", label: "Durable storage", ok: store === "redis", level: "recommended", env: "UPSTASH_REDIS_REST_URL", detail: store === "redis" ? "Data is stored in Redis." : "Using the in-memory store. On serverless hosting, data resets when an instance restarts; connect Upstash Redis (Vercel Marketplace) for persistence." },
-    { id: "local", label: "Local model for private code", ok: Boolean(config.localLlmBaseUrl), level: "optional", env: "LOCAL_LLM_BASE_URL", detail: config.localLlmBaseUrl ? `Projects in "local" privacy mode summarise code on ${config.localLlmModel}.` : "Not set: projects in \"local\" privacy mode summarise from commit metadata only." },
+    {
+      id: "local",
+      label: "Local model for private code",
+      ok: Boolean(config.localLlmBaseUrl || (config.litellmBaseUrl && config.litellmLocalModel)),
+      level: "optional",
+      env: config.litellmBaseUrl ? "LITELLM_LOCAL_MODEL" : "LOCAL_LLM_BASE_URL",
+      detail:
+        config.litellmBaseUrl && config.litellmLocalModel
+          ? `Projects in "local" privacy mode summarise code on "${config.litellmLocalModel}" through LiteLLM.`
+          : config.localLlmBaseUrl
+            ? `Projects in "local" privacy mode summarise code on ${config.localLlmModel}.`
+            : "Not set: projects in \"local\" privacy mode summarise from commit metadata only.",
+    },
     { id: "cron", label: "Scheduled sync secret", ok: Boolean(config.cronSecret), level: "optional", env: "CRON_SECRET", detail: config.cronSecret ? "The scheduled sync endpoint is protected." : "Not set: the scheduled sync endpoint refuses all calls." },
     { id: "github-webhook", label: "GitHub webhook secret", ok: Boolean(config.githubWebhookSecret), level: "optional", env: "GITHUB_WEBHOOK_SECRET", detail: config.githubWebhookSecret ? "Incoming GitHub webhooks are verified." : "Not set: the GitHub webhook endpoint refuses all calls." },
     { id: "teams", label: "Microsoft Teams notifications", ok: Boolean(config.teamsWebhookUrl), level: "optional", env: "TEAMS_WEBHOOK_URL", detail: config.teamsWebhookUrl ? "Escalations can be posted to Teams." : "Not set: Teams delivery is recorded as stubbed and messages stay in the in-app inbox." },

@@ -58,6 +58,31 @@ export const config = {
   get cheapModel() {
     return env("CHEAP_MODEL") ?? "claude-haiku-5-5";
   },
+  // LiteLLM gateway: when set, every model call goes through it.
+  get litellmBaseUrl() {
+    return env("LITELLM_BASE_URL")?.replace(/\/$/, "");
+  },
+  get litellmApiKey() {
+    return env("LITELLM_API_KEY");
+  },
+  /** Model names as defined in the LiteLLM configuration (aliases or "provider/model"). */
+  get litellmSmartModel() {
+    return env("LITELLM_SMART_MODEL") ?? "anthropic/claude-opus-5-5";
+  },
+  get litellmCheapModel() {
+    return env("LITELLM_CHEAP_MODEL") ?? "anthropic/claude-haiku-5-5";
+  },
+  /** A model that LiteLLM serves from your own hardware, for projects in "local" privacy mode. */
+  get litellmLocalModel() {
+    return env("LITELLM_LOCAL_MODEL");
+  },
+  get litellmMaxTokens(): number {
+    const value = Number(env("LITELLM_MAX_TOKENS"));
+    return Number.isFinite(value) && value >= 256 ? Math.floor(value) : 8000;
+  },
+  get litellmSendReasoningEffort(): boolean {
+    return env("LITELLM_SEND_REASONING_EFFORT") === "true";
+  },
   /** OpenAI-compatible endpoint of a local model server (Ollama, LM Studio, vLLM). */
   get localLlmBaseUrl() {
     return env("LOCAL_LLM_BASE_URL")?.replace(/\/$/, "");
