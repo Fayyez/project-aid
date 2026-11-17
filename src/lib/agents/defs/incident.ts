@@ -149,10 +149,13 @@ Be honest about uncertainty: confidence above 0.8 requires the log to point dire
     const top = suspects[0];
     const production = /prod/i.test(input.environment);
     const errorLine = input.log.split("\n").find((line) => /error|exception|fail|denied|timeout|refused/i.test(line))?.trim();
-    const confidence = top ? clamp(0.25 + top.score * 0.07, 0.25, 0.85) : 0.15;
+    // Rules can point at a suspect but cannot confirm it, so confidence is capped.
+    const confidence = top ? clamp(0.25 + top.score * 0.06, 0.25, 0.7) : 0.15;
+    // The last clause of the error line is usually the human-readable part.
+    const cause = errorLine ? (errorLine.split(/:\s+/).pop() ?? errorLine).replace(/^\(.*?\)\s*/, "").trim() : "";
     const deployRef = input.evidence.find((item) => item.type === "deployment")?.ref;
     return {
-      title: truncate(`${input.environment} deployment failed${errorLine ? `: ${errorLine.replace(/^\W*(error|fatal)\W*/i, "")}` : ""}`, 80),
+      title: truncate(`${input.environment.replace(/^[a-z]/, (c) => c.toUpperCase())} deployment failed${cause ? `: ${cause}` : ""}`, 80),
       severity: production ? "SEV2" : "SEV3",
       summary: `The ${input.environment} deployment of ${input.projectName} failed${deployRef ? ` [${deployRef}]` : ""}.${errorLine ? ` The log reports "${truncate(errorLine, 160)}".` : ""}${top ? ` The most likely trigger is "${top.title}" [${top.ref}].` : " No recent change clearly explains it."}`,
       suspectedCause: top ? `Probably "${top.title}" [${top.ref}]: it ${top.why.join(" and ") || "is the most recent change before the failure"}. This is inferred from the record and has not been confirmed.` : "Unknown. No change recorded since the last healthy deployment matches the failure log.",

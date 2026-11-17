@@ -128,8 +128,8 @@ export function TicketsTable({ projectId, tickets, team, overdueIds }: { project
                     </Select>
                   </div>
                 </Td>
-                <Td className="min-w-40">
-                  <Select aria-label={`Assignee of ${t.key}`} value={assigneeId} disabled={busy} onChange={(e) => change(t, { assigneeId: e.target.value }, e.target.value ? `Assigned to ${names.get(e.target.value) ?? "a team member"}` : "Now unassigned")} className="h-7 w-36 py-0 text-[13px]">
+                <Td className="min-w-48">
+                  <Select aria-label={`Assignee of ${t.key}`} value={assigneeId} disabled={busy} onChange={(e) => change(t, { assigneeId: e.target.value }, e.target.value ? `Assigned to ${names.get(e.target.value) ?? "a team member"}` : "Now unassigned")} className="h-7 w-44 py-0 text-[13px]">
                     <option value="">Unassigned</option>
                     {team.map((m) => (
                       <option key={m.id} value={m.id}>

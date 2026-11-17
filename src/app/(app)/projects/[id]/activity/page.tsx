@@ -32,15 +32,16 @@ function summarisedBy(e: ProjectEvent): string {
 function EventItem({ event, projectId, ticketing, team }: { event: ProjectEvent; projectId: string; ticketing: boolean; team: { id: string; name: string }[] }) {
   const redacted = event.tags.includes("secrets-redacted");
   const injection = event.tags.includes("possible-injection");
-  const tags = event.tags.filter((t) => t !== "secrets-redacted" && t !== "possible-injection");
+  const tags = event.tags.filter((t) => t !== "secrets-redacted" && t !== "possible-injection" && t !== event.changeType && !event.areas.includes(t));
+  const canTicket = ticketing && event.kind === "message";
   return (
     <li className="min-w-0 px-4 py-3.5">
-      <div className="flex min-w-0 items-start gap-3">
+      <div className="flex min-w-0 flex-wrap items-start gap-x-3 gap-y-1.5 sm:flex-nowrap">
         <div className="mt-0.5 flex shrink-0 flex-col items-center gap-1.5">
           <EventKindIcon kind={event.kind} size={16} />
           <SourceIcon source={event.source} size={13} className="text-subtle" />
         </div>
-        <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="min-w-0 flex-1 basis-0 space-y-1.5">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {event.url ? (
               <a href={event.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-w-0 items-center gap-1 text-[13px] font-semibold hover:underline">
@@ -106,13 +107,13 @@ function EventItem({ event, projectId, ticketing, team }: { event: ProjectEvent;
               ))}
             </div>
           ) : null}
-          {event.actorId || (ticketing && event.kind === "message") ? (
-            <div className="-ml-2 flex flex-wrap items-center gap-1">
-              {event.actorId ? <AskAuthorButton projectId={projectId} eventTitle={event.title} authorName={event.actorName ?? "the author"} /> : null}
-              {ticketing && event.kind === "message" ? <EventToTicketsButton projectId={projectId} text={event.details ?? event.summary} team={team} /> : null}
-            </div>
-          ) : null}
         </div>
+        {event.actorId || canTicket ? (
+          <div className="flex w-full shrink-0 flex-wrap items-center gap-1 pl-5 sm:w-auto sm:flex-col sm:items-end sm:pl-0">
+            {event.actorId ? <AskAuthorButton projectId={projectId} eventTitle={event.title} authorName={event.actorName ?? "the author"} /> : null}
+            {canTicket ? <EventToTicketsButton projectId={projectId} text={event.details ?? event.summary} team={team} /> : null}
+          </div>
+        ) : null}
       </div>
     </li>
   );
@@ -143,7 +144,7 @@ export default async function ActivityPage({ params, searchParams }: PageProps<"
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-2xl text-[13px] text-muted">Everything that changed on this project, from every connected source, with the person behind each change.</p>
+        <p className="max-w-xl text-[13px] text-muted">Everything that changed on this project, from every connected source, with the person behind each change.</p>
         <UploadDocument projectId={id} />
       </div>
 

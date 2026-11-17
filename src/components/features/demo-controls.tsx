@@ -72,7 +72,10 @@ export function DemoControls({ projectId, scenarios }: { projectId: string; scen
           <Callout tone="success" title={`Scenario done: ${summary.scenario}`}>
             <ul className="list-disc space-y-0.5 pl-4">
               <li>
-                {summary.events} event{summary.events === 1 ? "" : "s"} ingested.
+                {summary.events} event{summary.events === 1 ? "" : "s"} ingested.{" "}
+                <Link className="font-medium underline" href={`/projects/${projectId}/activity`}>
+                  View the activity feed
+                </Link>
               </li>
               {summary.redactions > 0 ? <li>{summary.redactions} secret{summary.redactions === 1 ? "" : "s"} redacted before any model saw them.</li> : null}
               {summary.incidentIds.map((id) => (

@@ -80,13 +80,14 @@ export default async function ProjectSettingsPage({ params, searchParams }: Page
       content = <MilestonesManager projectId={project.id} milestones={project.milestones} />;
       break;
     case "templates": {
+      const placeholders = Array.from(new Set(Object.values(DEFAULT_TEMPLATES).flatMap((template) => templatePlaceholders(template))));
       const templates: TemplateInfo[] = (Object.keys(TEMPLATE_LABELS) as ReportKind[]).map((kind) => ({
         kind,
         label: TEMPLATE_LABELS[kind].label,
         description: TEMPLATE_LABELS[kind].description,
         defaultText: DEFAULT_TEMPLATES[kind],
         override: project.templates[kind],
-        placeholders: templatePlaceholders(DEFAULT_TEMPLATES[kind]),
+        placeholders,
       }));
       content = <TemplatesEditor projectId={project.id} templates={templates} />;
       break;

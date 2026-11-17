@@ -122,6 +122,25 @@ export function ChatView({ userName, projectId, projectName, conversations, conv
 
   useEffect(() => () => abort.current?.abort(), []);
 
+  // Fill the space between whatever sits above the panel (page or project header) and the bottom of the window.
+  const panel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = panel.current;
+    if (!el) return;
+    const fit = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      el.style.height = `max(30rem, calc(100dvh - ${Math.round(top)}px - 1.5rem))`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    const observer = new ResizeObserver(fit);
+    if (el.parentElement) observer.observe(el.parentElement);
+    return () => {
+      window.removeEventListener("resize", fit);
+      observer.disconnect();
+    };
+  }, []);
+
   function updateAction(messageId: string, action: ProposedAction, href?: string) {
     setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, actions: m.actions?.map((a) => (a.id === action.id ? action : a)) } : m)));
     if (href) setActionHrefs((prev) => ({ ...prev, [action.id]: href }));
@@ -144,7 +163,7 @@ export function ChatView({ userName, projectId, projectName, conversations, conv
   const empty = messages.length === 0 && !streaming && !error;
 
   return (
-    <div className={cn("grid min-h-[30rem] grid-cols-1 gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]", heightClass)}>
+    <div ref={panel} className={cn("grid min-h-[30rem] grid-cols-1 gap-4 lg:grid-cols-[17rem_minmax(0,1fr)]", heightClass)}>
       <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-line bg-surface shadow-card lg:block" aria-label="Conversation history">
         {list}
       </aside>

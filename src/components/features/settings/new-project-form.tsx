@@ -9,8 +9,9 @@ import { useAction } from "./use-action";
 function suggestKey(name: string): string {
   const words = name.toUpperCase().replace(/[^A-Z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
   if (words.length === 0) return "";
-  if (words.length === 1) return words[0].slice(0, 6);
-  return words.map((word) => word[0]).join("").slice(0, 6).padEnd(2, words[0].slice(1, 2));
+  const initials = words.map((word) => word[0]).join("");
+  // Initials read well for three or more words ("Atlas Customer Portal" gives ACP); shorter names use the first word.
+  return (initials.length >= 3 ? initials : words[0]).slice(0, 6);
 }
 
 export function NewProjectForm() {

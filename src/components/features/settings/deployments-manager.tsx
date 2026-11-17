@@ -120,7 +120,7 @@ export function DeploymentsManager({ projectId, targets }: { projectId: string; 
                   <Td className="max-w-xs break-words" muted>
                     {summary(target)}
                   </Td>
-                  <Td mono>{target.secretEnv ?? PROVIDERS[target.provider]?.defaultEnv ?? "None needed"}</Td>
+                  {target.secretEnv ?? PROVIDERS[target.provider]?.defaultEnv ? <Td mono>{target.secretEnv ?? `${PROVIDERS[target.provider]?.defaultEnv} (default)`}</Td> : <Td muted>None needed</Td>}
                   <Td>
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="sm" icon={<Pencil size={13} />} aria-label={`Edit ${target.environment}`} onClick={() => setDraft({ id: target.id, environment: target.environment, provider: target.provider, config: { ...target.config }, secretEnv: target.secretEnv ?? "" })}>

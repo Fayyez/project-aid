@@ -101,9 +101,10 @@ function classifyPriority(text: string, type: TicketType): Priority {
 }
 
 const LEAD_INS: RegExp[] = [
+  /^(?:bug|issue|problem|defect|request|change request|feature|question|todo|task)\s*[:\-]\s*/i,
   /^(?:also|and|then|btw|additionally|finally|next|another thing|one more thing)[,:]?\s+/i,
-  /^(?:can|could|would|will) you (?:please )?(?:also )?/i,
-  /^please (?:could you |can you )?/i,
+  /^(?:can|could|would|will|should) (?:you|we) (?:please )?(?:also )?/i,
+  /^please (?:also )?(?:could you |can you )?/i,
   /^(?:we|i) (?:really |still )?(?:need|want)(?: you| us)? to /i,
   /^(?:we|i) (?:really |still )?(?:need|want) /i,
   /^i(?:'d| would) like (?:us |you )?(?:to )?/i,
@@ -125,8 +126,11 @@ export function deriveTitle(text: string, type: TicketType): string {
   title = type === "question" ? title.trim() : title.replace(/[.!?,;:]+$/, "").trim();
   title = capitalise(title);
   if (!title) title = "Follow up on message";
-  if (type === "bug" && !/^(fix|resolve|investigate|debug|repair)\b/i.test(title)) title = `Fix: ${title}`;
-  return truncate(title, 80);
+  if (type === "bug" && !/^(fix|resolve|investigate|debug|repair)\b/i.test(title)) title = `Fix: ${title.replace(/^[A-Z](?=[a-z])/, (c) => c.toLowerCase())}`;
+  if (title.length <= 80) return title;
+  // Cut at a word boundary so the title never ends mid-word.
+  const cut = title.slice(0, 80);
+  return `${cut.slice(0, Math.max(40, cut.lastIndexOf(" "))).replace(/[,;:\s]+$/, "")}…`;
 }
 
 function matchAreas(text: string, areas: string[]): string[] {
@@ -142,7 +146,8 @@ export function heuristicExtract(input: TicketExtractorInput): TicketExtraction 
   for (const segment of segments) {
     const actionable = segment.listed || REQUEST.test(segment.text) || BUG.test(segment.text) || /\?\s*$/.test(segment.text);
     if (actionable) {
-      items.push({ text: segment.text, listed: segment.listed, context: pending });
+      // A lead-in such as "a few things from our side" is not context for a numbered item.
+      items.push({ text: segment.text, listed: segment.listed, context: segment.listed ? [] : pending });
       pending = [];
     } else {
       const last = items[items.length - 1];
@@ -158,7 +163,7 @@ export function heuristicExtract(input: TicketExtractorInput): TicketExtraction 
     const priority = classifyPriority(`${item.text} ${item.context.join(" ")}`, type);
     const title = deriveTitle(item.text, type);
     const description = [item.text, ...item.context].join("\n\n");
-    const acceptanceCriteria = type === "bug" ? ["The behaviour described no longer occurs."] : type === "question" ? [] : [`The requester confirms: ${truncate(title, 100)}.`];
+    const acceptanceCriteria = type === "bug" ? ["The behaviour described no longer occurs."] : type === "question" ? [] : ["Works as described in the request.", "The requester has seen it and confirmed."];
     if (type === "bug" && !REPRO.test(description)) questions.push(`How can "${truncate(title, 60)}" be reproduced (where, what was done, what was expected)?`);
     if ((type === "feature" || type === "task") && item.text.split(/\s+/).length < 5) questions.push(`Can you add detail on what "${truncate(title, 60)}" should do?`);
     return {

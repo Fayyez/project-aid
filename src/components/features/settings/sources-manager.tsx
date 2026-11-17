@@ -139,7 +139,7 @@ export function SourcesManager({ projectId, sources, connectors }: { projectId: 
                         {source.lastSyncDetail ? <span className="block max-w-xs break-words">{source.lastSyncDetail}</span> : null}
                       </div>
                     </Td>
-                    <Td mono>{source.secretEnv ?? (defaultEnv ? `${defaultEnv} (default)` : "None needed")}</Td>
+                    {source.secretEnv || defaultEnv ? <Td mono>{source.secretEnv ?? `${defaultEnv} (default)`}</Td> : <Td muted>None needed</Td>}
                     <Td>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="sm" icon={<Pencil size={13} />} onClick={() => startEdit(source)} aria-label={`Edit ${source.name}`}>
