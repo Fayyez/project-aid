@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getStore, useFreshMemoryStore } from "@/lib/store";
 import { DEFAULT_FEATURES, DEFAULT_PRIVACY, type Actor, type Person, type Project, type ProjectEvent, type Ticket } from "@/lib/types";
-import { sha256 } from "@/lib/util";
 
 vi.mock("@/lib/services/snapshot", () => ({ refreshSnapshot: vi.fn(async () => ({})) }));
 
@@ -13,8 +12,6 @@ const person = (id: string, name: string, role: Person["role"] = "member"): Pers
 const PEOPLE: Person[] = [person("u_pd", "Paula Director", "pd"), person("u_dana", "Dana Reyes"), person("u_eli", "Eli Brandt"), person("u_fay", "Fay Okafor"), person("u_gus", "Gus Lindqvist")];
 
 const pdActor: Actor = { id: "u_pd", name: "Paula Director", role: "pd", via: "session", scopes: ["read", "write"] };
-const readOnlyActor: Actor = { ...pdActor, via: "token", scopes: ["read"] };
-const otherPd: Actor = { id: "u_other", name: "Other PD", role: "pd", via: "session", scopes: ["read", "write"] };
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {

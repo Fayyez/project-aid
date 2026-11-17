@@ -254,6 +254,8 @@ export function composeFromEvidence(input: ComposerInput): string {
   const many = briefs.length > 1;
   const label = { red: "needs attention now", amber: "is at risk", green: "is on track" };
   const sections: string[] = [];
+  // Say up front what the director can do with one click; the action itself waits for them.
+  if (input.offered.length) sections.push(`You can ${input.offered.join(" or ")} with the button below. This is what the record shows so far:`);
   if (many) {
     const needing = briefs.filter((brief) => brief.health !== "green");
     sections.push(needing.length ? `${needing.length} of ${briefs.length} projects ${needing.length === 1 ? "needs" : "need"} your attention: ${needing.map((brief) => `**${brief.name}** [${brief.metricRef}]`).join(", ")}.` : `All ${briefs.length} projects are on track ${briefs.map((brief) => `[${brief.metricRef}]`).join("")}.`);

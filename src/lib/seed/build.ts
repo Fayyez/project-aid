@@ -1,7 +1,7 @@
 import type { ChangeType, Deployment, EventKind, ProjectEvent, Ticket, TicketType } from "@/lib/types";
-import { DAY_MS, HOUR_MS, Rng, iso, lcFirst, maxDate, minDate, resolveWhen, snapWork, type When } from "./helpers";
+import { DAY_MS, HOUR_MS, Rng, iso, lcFirst, maxDate, minDate, resolveWhen, snapWork } from "./helpers";
 import { personDef, personId } from "./people";
-import type { DeploySpec, EventSpec, StorySpec, TicketSpec } from "./stories/types";
+import type { DeploySpec, StorySpec, TicketSpec } from "./stories/types";
 
 export interface Built {
   spec: StorySpec;

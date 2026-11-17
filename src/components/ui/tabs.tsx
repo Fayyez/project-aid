@@ -32,7 +32,7 @@ export interface TabsProps {
   className?: string;
 }
 
-const listClass = "flex min-w-0 gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+const listClass = "relative flex min-w-0 gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 function TabLink({ active, href, item }: { active: boolean; href: string; item: TabItem }) {
   return (

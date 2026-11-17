@@ -24,7 +24,8 @@ export function rankSuspects(candidates: Evidence[], log: string, failedAt: stri
   const logTerms = new Set(tokenize(log).filter((term) => term.length > 3));
   const failed = new Date(failedAt).getTime();
   return candidates
-    .filter((item) => item.type === "event")
+    // The failure itself, and earlier incidents, are evidence but never suspects.
+    .filter((item) => item.type === "event" && !/^(deployment|incident|release|clarification):/.test(item.text))
     .map((item) => {
       const terms = uniq(tokenize(item.text));
       const overlap = terms.filter((term) => logTerms.has(term));

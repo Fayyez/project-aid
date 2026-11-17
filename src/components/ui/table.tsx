@@ -13,7 +13,7 @@ export interface TableProps extends HTMLAttributes<HTMLTableElement> {
 /** Scrolls inside its own bordered container so the page never scrolls horizontally. */
 export function Table({ density = "compact", stickyHeader, containerClassName, className, ...rest }: TableProps) {
   return (
-    <div className={cn("w-full overflow-auto rounded-lg border border-line bg-surface shadow-card", stickyHeader && "max-h-[70vh]", containerClassName)}>
+    <div className={cn("relative w-full overflow-auto rounded-lg border border-line bg-surface shadow-card", stickyHeader && "max-h-[70vh]", containerClassName)}>
       <table
         data-density={density}
         className={cn(
