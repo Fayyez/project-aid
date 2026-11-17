@@ -43,7 +43,9 @@ export async function loginAction(_previous: { error?: string } | undefined, for
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
-  if (!rateLimit(`login:${ip}`, 10, 10 * 60 * 1000).ok || !rateLimit(`login:${email}`, 6, 10 * 60 * 1000).ok) {
+  // Tight in production; looser locally so automated checks can sign in repeatedly.
+  const scale = process.env.NODE_ENV === "production" ? 1 : 50;
+  if (!rateLimit(`login:${ip}`, 10 * scale, 10 * 60 * 1000).ok || !rateLimit(`login:${email}`, 6 * scale, 10 * 60 * 1000).ok) {
     return { error: "Too many attempts. Wait a few minutes and try again." };
   }
   const store = await getStore();

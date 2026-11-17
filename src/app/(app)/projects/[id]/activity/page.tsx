@@ -3,6 +3,7 @@ import { Activity, ExternalLink, Search, ShieldAlert, ShieldCheck } from "lucide
 import { Badge, Button, Card, CardBody, EmptyState, Input, LinkButton, RelativeTime, Select, Tooltip } from "@/components/ui";
 import { ChangeTypeBadge, EVENT_KIND_META, EventKindIcon, SOURCE_META, SourceIcon } from "@/components/domain";
 import { AskAuthorButton } from "@/components/features/project/ask-author-button";
+import { EventToTicketsButton } from "@/components/features/project/event-to-tickets-button";
 import { UploadDocument } from "@/components/features/project/upload-document";
 import { AccessError } from "@/lib/auth/access";
 import { requireActor } from "@/lib/auth/current";
@@ -28,7 +29,7 @@ function summarisedBy(e: ProjectEvent): string {
   return "Shown as received, not summarised";
 }
 
-function EventItem({ event, projectId }: { event: ProjectEvent; projectId: string }) {
+function EventItem({ event, projectId, ticketing, team }: { event: ProjectEvent; projectId: string; ticketing: boolean; team: { id: string; name: string }[] }) {
   const redacted = event.tags.includes("secrets-redacted");
   const injection = event.tags.includes("possible-injection");
   const tags = event.tags.filter((t) => t !== "secrets-redacted" && t !== "possible-injection");
@@ -105,9 +106,10 @@ function EventItem({ event, projectId }: { event: ProjectEvent; projectId: strin
               ))}
             </div>
           ) : null}
-          {event.actorId ? (
-            <div className="-ml-2">
-              <AskAuthorButton projectId={projectId} eventTitle={event.title} authorName={event.actorName ?? "the author"} />
+          {event.actorId || (ticketing && event.kind === "message") ? (
+            <div className="-ml-2 flex flex-wrap items-center gap-1">
+              {event.actorId ? <AskAuthorButton projectId={projectId} eventTitle={event.title} authorName={event.actorName ?? "the author"} /> : null}
+              {ticketing && event.kind === "message" ? <EventToTicketsButton projectId={projectId} text={event.details ?? event.summary} team={team} /> : null}
             </div>
           ) : null}
         </div>
@@ -135,7 +137,7 @@ export default async function ActivityPage({ params, searchParams }: PageProps<"
     if (error instanceof AccessError) notFound();
     throw error;
   }
-  const { events, total, team } = data;
+  const { project, events, total, team } = data;
   const filtered = Boolean(q || validKind || person || importance || days !== 30);
 
   return (
@@ -238,7 +240,7 @@ export default async function ActivityPage({ params, searchParams }: PageProps<"
         <Card as="section" aria-label="Activity feed">
           <ul className="divide-y divide-line">
             {events.map((event) => (
-              <EventItem key={event.id} event={event} projectId={id} />
+              <EventItem key={event.id} event={event} projectId={id} ticketing={project.features.ticketing} team={team.map((m) => ({ id: m.id, name: m.name }))} />
             ))}
           </ul>
         </Card>
